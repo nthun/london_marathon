@@ -1,0 +1,137 @@
+---
+title: "London Marathon"
+author: "Tamas Nagy"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+
+theme_set(theme_light())
+
+```
+
+```{r}
+winners <- read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2023/2023-04-25/winners.csv')
+
+london_marathon <- read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2023/2023-04-25/london_marathon.csv') %>% 
+    filter(Year < 2020)
+
+```
+
+# Participants of London Marathons
+
+```{r}
+
+london_marathon %>% 
+    ggplot() +
+    aes(x = Year) +
+    geom_col(aes(y = Accepted), alpha = .5) +
+    geom_col(aes(y = Starters), fill = "green", alpha = .5) +
+    geom_col(aes(y = Finishers), fill = "red", alpha = .5)
+    
+
+# To overcome some problems, use long format
+london_marathon %>% 
+    select(Year, Accepted, Starters, Finishers) %>% 
+    pivot_longer(-Year, names_to = "status", values_to = "n") %>% 
+    mutate(status = fct_relevel(status, c("Accepted", "Starters", "Finishers"))) %>% 
+    ggplot() +
+    aes(x = Year, y = n, fill = status) +
+    geom_col() +
+    scale_y_continuous(labels = scales::comma_format()) +
+    facet_wrap(~status) +
+    labs(x = NULL, y = "Particiapnts",
+         title = "Participant of the London Mararthon over time",
+         fill = "Status")
+ 
+
+```
+
+# Summary stats of London Marathon
+
+```{r}
+london_marathon %>% 
+    drop_na(Raised) %>% 
+    summarise(mean_donation = mean(Raised),
+              sd_donation = sd(Raised),
+              med_donation = median(Raised))
+
+summary(na.omit(london_marathon$Raised))
+
+```
+
+# Proportion of finishers
+
+```{r}
+london_marathon %>% 
+    mutate(finish_prop = Finishers/Starters) %>% 
+    ggplot() +
+    aes(x = Year, y = finish_prop) +
+    geom_line(size = 1.2) +
+    scale_y_continuous(labels = scales::percent_format()) +
+    geom_text(x = 1995, y = .935, label = "Something happened here", 
+              color = "red", hjust = 0) +
+    labs(title = "The proportion of finishers over time",
+        x = NULL, y = NULL)
+
+
+```
+
+# Time of the winner by year by category
+
+```{r}
+winners %>% 
+    count(Category)
+
+winners %>% 
+    ggplot() +
+    aes(x = Year, y = Time, color = Category) +
+    geom_line(size = 1.2) +
+    expand_limits(y = c(0, Inf))
+
+
+winners %>% 
+    ggplot() +
+    aes(x = Year, y = Time, color = Category) +
+    geom_smooth(size = 1.2, se = FALSE) +
+    expand_limits(y = c(0, Inf))
+```
+
+# Winners by nationality
+
+```{r}
+winners %>% 
+    count(Nationality, sort = TRUE) %>% 
+    mutate(Nationality = fct_reorder(Nationality, n)) %>% 
+    ggplot() +
+    aes(x = n, y = Nationality, label = n) +
+    geom_col() +
+    geom_text(hjust = 0) +
+    labs(y = NULL, x = "Number of winners",
+         title = "Winners of each Nationality")
+```
+
+# Winners who won more than one marathon
+
+```{r}
+winners %>% 
+    mutate(Athlete = str_remove(Athlete, pattern = " \\(Tie\\)")) %>% 
+    add_count(Athlete, name = "wins") %>%
+    filter(wins > 1) %>%
+    mutate(Athlete = fct_reorder(Athlete, Year, min)) %>% 
+    ggplot() +
+    aes(x = Year, y = Athlete, fill = Category) +
+    geom_tile(show.legend = FALSE) +
+    labs(y = NULL, x = NULL,
+         title = "Winners of London Marathons over the year by category",
+         subtitle = "Only those athletes are show who won more than 1 competitions") +
+    facet_wrap(~Category, ncol = 1, scales = "free_y")
+
+
+```
+
+
+
